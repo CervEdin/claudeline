@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/fredrikaverpil/claudeline/internal/usage"
 )
 
 func TestContextColorFunc(t *testing.T) {
@@ -804,6 +806,43 @@ func TestBuild_CacheMiss(t *testing.T) {
 		normalized := strings.ReplaceAll(got, "\u00A0", " ")
 		if strings.Contains(normalized, "🥊") {
 			t.Errorf("Build() with CacheMiss=false should not contain 🥊, got %q", got)
+		}
+	})
+}
+
+func TestBuild_HideExtraUsage(t *testing.T) {
+	t.Parallel()
+
+	pct := 25.0
+	used, limit := 1234.0, 5000.0
+	base := Params{
+		LoginType:      "Pro",
+		Model:          "Opus",
+		ContextUsedPct: &pct,
+		Usage: &usage.Response{
+			ExtraUsage: &usage.ExtraUsage{
+				IsEnabled:    true,
+				MonthlyLimit: &limit,
+				UsedCredits:  &used,
+			},
+		},
+	}
+
+	t.Run("extra usage shown by default", func(t *testing.T) {
+		t.Parallel()
+		got := Build(base)
+		if !strings.Contains(got, "$12/$50") {
+			t.Errorf("Build() should contain $12/$50, got %q", got)
+		}
+	})
+
+	t.Run("extra usage hidden with HideExtraUsage", func(t *testing.T) {
+		t.Parallel()
+		p := base
+		p.HideExtraUsage = true
+		got := Build(p)
+		if strings.Contains(got, "$12/$50") {
+			t.Errorf("Build() with HideExtraUsage=true should not contain $12/$50, got %q", got)
 		}
 	})
 }

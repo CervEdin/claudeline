@@ -70,6 +70,7 @@ type config struct {
 	cwdMaxLen       int
 	showCost        bool
 	showEffort      bool
+	hideExtraUsage  bool
 	format          string
 
 	// debug options
@@ -89,6 +90,7 @@ func runMain() int {
 	cwdMaxLen := flag.Int("cwd-max-len", 30, "max display length for working directory name")
 	showCost := flag.Bool("cost", false, "show estimated session cost in the status line (always on for API key users)")
 	showEffort := flag.Bool("effort", false, "show model effort level next to the model name")
+	hideExtraUsage := flag.Bool("hide-extra-usage", false, "hide extra usage ($used/$limit) from the status line")
 	formatUsage := "comma-separated segments to show, in order; overrides -cwd, -git-branch and -cost\n" +
 		"(available: " + strings.Join(render.AllSegments, ", ") + ")"
 	format := flag.String("format", "", formatUsage)
@@ -129,6 +131,7 @@ func runMain() int {
 		cwdMaxLen:       *cwdMaxLen,
 		showCost:        *showCost,
 		showEffort:      *showEffort,
+		hideExtraUsage:  *hideExtraUsage,
 		format:          *format,
 		usageFile:       *usageFile,
 		statusFile:      *statusFile,
@@ -177,6 +180,7 @@ func run(cfg config) error {
 		Branch:             git.Branch(ctx, data.Cwd),
 		BranchMaxLen:       cfg.gitBranchMaxLen,
 		CostUSD:            data.Cost.TotalCostUSD,
+		HideExtraUsage:     cfg.hideExtraUsage,
 	})
 
 	_, err = fmt.Fprintln(os.Stdout, output)

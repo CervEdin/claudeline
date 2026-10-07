@@ -79,6 +79,7 @@ bars. Written in Go with no external dependencies (stdlib only).
 | `-git-branch-max-len` | `30`    | Max display length for git branch                    |
 | `-cost`               | `false` | Show estimated session cost in the status line       |
 | `-effort`             | `false` | Show model effort level, e.g. `Sonnet 5.5 (xhigh)`   |
+| `-hide-extra-usage`   | `false` | Hide extra usage (`$used/$limit`) from status line   |
 | `-format`             |         | Segments to show, in order (see [Format](#format))   |
 | `-usage-file`         |         | Read usage data from file instead of API             |
 | `-status-file`        |         | Read status data from file instead of API            |
@@ -168,7 +169,7 @@ Key components:
 - **Quota bars:** 5-char width using `█`/`░` (blue/magenta/red) for 5-hour and
   7-day quotas. Per-model sub-bars (sonnet, opus, cowork, oauth) appended to the
   7-day bar with `·` sub-separator. Extra usage shown as `$used/$limit` (hidden
-  when $0, red at 80%+ of limit). A `⚡️` prefix appears on the 5-hour bar during
+  when $0 or with `-hide-extra-usage`, red at 80%+ of limit). A `⚡️` prefix appears on the 5-hour bar during
   peak hours (weekdays 13:00–19:00 UTC) for Pro and Max plans, when the 5-hour
   session limit
   [burns faster than normal](https://xcancel.com/trq212/status/2037254607001559305#m).

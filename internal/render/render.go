@@ -83,6 +83,7 @@ type Params struct {
 	BranchMaxLen     int
 	CacheMiss        bool
 	CostUSD          float64
+	HideExtraUsage   bool
 }
 
 // Build assembles the complete statusline string from all collected data.
@@ -176,7 +177,8 @@ func Build(p Params) string {
 			}
 		}
 
-		if e := p.Usage.ExtraUsage; e != nil && e.IsEnabled && e.MonthlyLimit != nil && e.UsedCredits != nil {
+		if e := p.Usage.ExtraUsage; !p.HideExtraUsage && e != nil && e.IsEnabled && e.MonthlyLimit != nil &&
+			e.UsedCredits != nil {
 			usageExtra = ExtraUsage(int(*e.UsedCredits)/100, int(*e.MonthlyLimit)/100)
 		}
 	}
