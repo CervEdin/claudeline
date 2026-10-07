@@ -8,6 +8,8 @@ import (
 	"log"
 	"os"
 	runtimedebug "runtime/debug"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/fredrikaverpil/claudeline/internal/creds"
@@ -68,6 +70,7 @@ type config struct {
 	cwdMaxLen       int
 	showCost        bool
 	showEffort      bool
+	format          string
 
 	// debug options
 	debug      bool
@@ -86,6 +89,9 @@ func runMain() int {
 	cwdMaxLen := flag.Int("cwd-max-len", 30, "max display length for working directory name")
 	showCost := flag.Bool("cost", false, "show estimated session cost in the status line (always on for API key users)")
 	showEffort := flag.Bool("effort", false, "show model effort level next to the model name")
+	formatUsage := "comma-separated segments to show, in order; overrides -cwd, -git-branch and -cost\n" +
+		"(available: " + strings.Join(render.AllSegments, ", ") + ")"
+	format := flag.String("format", "", formatUsage)
 	usageFile := flag.String("usage-file", "", "read usage data from file instead of API")
 	statusFile := flag.String("status-file", "", "read status data from file instead of API")
 	updateFile := flag.String("update-file", "", "read update data from file instead of API")
@@ -123,6 +129,7 @@ func runMain() int {
 		cwdMaxLen:       *cwdMaxLen,
 		showCost:        *showCost,
 		showEffort:      *showEffort,
+		format:          *format,
 		usageFile:       *usageFile,
 		statusFile:      *statusFile,
 		updateFile:      *updateFile,
@@ -151,7 +158,7 @@ func run(cfg config) error {
 	}
 
 	output := render.Build(render.Params{
-		Segments:           defaultSegments(cfg, loginType),
+		Segments:           segments(cfg, loginType),
 		LoginType:          loginType,
 		Model:              model,
 		ContextUsedPct:     data.ContextWindow.UsedPercentage,
@@ -174,6 +181,28 @@ func run(cfg config) error {
 
 	_, err = fmt.Fprintln(os.Stdout, output)
 	return err
+}
+
+// segments returns the statusline segment names in display order.
+// An explicit -format takes precedence over -cwd, -git-branch and -cost.
+func segments(cfg config, loginType string) []string {
+	if cfg.format == "" {
+		return defaultSegments(cfg, loginType)
+	}
+
+	var names []string
+	for name := range strings.SplitSeq(cfg.format, ",") {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		if !slices.Contains(render.AllSegments, name) {
+			log.Printf("format: unknown segment %q", name)
+			continue
+		}
+		names = append(names, name)
+	}
+	return names
 }
 
 // defaultSegments derives the segment names from the -cwd, -git-branch and

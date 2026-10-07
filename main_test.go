@@ -19,7 +19,7 @@ func TestKeychainServiceNameWiring(t *testing.T) {
 	}
 }
 
-func TestDefaultSegments(t *testing.T) {
+func TestSegments(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -54,15 +54,31 @@ func TestDefaultSegments(t *testing.T) {
 			loginType: creds.ProviderAPI,
 			want:      []string{"plan", "model", "context", "5h", "7d", "cost", "extra", "status", "update"},
 		},
+		{
+			name: "format",
+			cfg:  config{format: "context, 5h,model"},
+			want: []string{"context", "5h", "model"},
+		},
+		{
+			name:      "format overrides legacy flags",
+			cfg:       config{format: "model,context", showCwd: true, showCost: true},
+			loginType: creds.ProviderAPI,
+			want:      []string{"model", "context"},
+		},
+		{
+			name: "format drops unknown and empty names",
+			cfg:  config{format: "model,,bogus,context,"},
+			want: []string{"model", "context"},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := defaultSegments(tt.cfg, tt.loginType)
+			got := segments(tt.cfg, tt.loginType)
 			if !slices.Equal(got, tt.want) {
-				t.Errorf("defaultSegments() = %q, want %q", got, tt.want)
+				t.Errorf("segments() = %q, want %q", got, tt.want)
 			}
 		})
 	}

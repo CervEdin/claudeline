@@ -79,6 +79,7 @@ bars. Written in Go with no external dependencies (stdlib only).
 | `-git-branch-max-len` | `30`    | Max display length for git branch                    |
 | `-cost`               | `false` | Show estimated session cost in the status line       |
 | `-effort`             | `false` | Show model effort level, e.g. `Sonnet 5.5 (xhigh)`   |
+| `-format`             |         | Segments to show, in order (see [Format](#format))   |
 | `-usage-file`         |         | Read usage data from file instead of API             |
 | `-status-file`        |         | Read status data from file instead of API            |
 | `-update-file`        |         | Read update data from file instead of API            |
@@ -91,6 +92,40 @@ Example with working directory and git branch enabled:
   "statusLine": {
     "type": "command",
     "command": "claudeline -cwd -git-branch"
+  }
+}
+```
+
+### Format
+
+`-format` takes a comma-separated list of segments, rendered in the given order
+and joined with `│`. Segments with nothing to show are skipped. When set, it
+overrides `-cwd`, `-git-branch` and `-cost` (including the automatic cost
+display for API key users). Unknown segment names are ignored and logged with
+`-debug`.
+
+| Segment   | Content                                              |
+| --------- | ---------------------------------------------------- |
+| `plan`    | Subscription plan or provider, e.g. `Pro`, `API`     |
+| `model`   | Model name (with effort level when `-effort` is set) |
+| `cwd`     | Working directory name                               |
+| `branch`  | Git branch                                           |
+| `context` | Context window bar, with `⚠️` `🥵` `🥊` indicators   |
+| `5h`      | 5-hour quota bar, with `⚡️` indicator                |
+| `7d`      | 7-day quota bar, with per-model sub-bars             |
+| `cost`    | Session cost                                         |
+| `extra`   | Extra usage (`$used/$limit`)                         |
+| `status`  | Service disruption indicator                         |
+| `update`  | Update available indicator                           |
+
+The default is `plan,model,context,5h,7d,extra,status,update`, with `cwd`,
+`branch` and `cost` added by their respective flags.
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "claudeline -format model,branch,context,5h,7d,cost"
   }
 }
 ```
