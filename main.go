@@ -151,6 +151,7 @@ func run(cfg config) error {
 	}
 
 	output := render.Build(render.Params{
+		Segments:           defaultSegments(cfg, loginType),
 		LoginType:          loginType,
 		Model:              model,
 		ContextUsedPct:     data.ContextWindow.UsedPercentage,
@@ -164,18 +165,32 @@ func run(cfg config) error {
 		SubscriptionType:   cred.ClaudeAiOauth.SubscriptionType,
 		Status:             remote.status,
 		Update:             remote.update,
-		ShowCwd:            cfg.showCwd,
 		Cwd:                data.Cwd,
 		CwdMaxLen:          cfg.cwdMaxLen,
-		ShowBranch:         cfg.showGitBranch,
 		Branch:             git.Branch(ctx, data.Cwd),
 		BranchMaxLen:       cfg.gitBranchMaxLen,
-		ShowCost:           cfg.showCost || loginType == creds.ProviderAPI,
 		CostUSD:            data.Cost.TotalCostUSD,
 	})
 
 	_, err = fmt.Fprintln(os.Stdout, output)
 	return err
+}
+
+// defaultSegments derives the segment names from the -cwd, -git-branch and
+// -cost flags. Cost is always shown for direct API key users.
+func defaultSegments(cfg config, loginType string) []string {
+	names := []string{render.SegmentPlan, render.SegmentModel}
+	if cfg.showCwd {
+		names = append(names, render.SegmentCwd)
+	}
+	if cfg.showGitBranch {
+		names = append(names, render.SegmentBranch)
+	}
+	names = append(names, render.SegmentContext, render.SegmentFiveHour, render.SegmentSevenDay)
+	if cfg.showCost || loginType == creds.ProviderAPI {
+		names = append(names, render.SegmentCost)
+	}
+	return append(names, render.SegmentExtra, render.SegmentStatus, render.SegmentUpdate)
 }
 
 // readStdin reads and parses the stdin JSON payload.

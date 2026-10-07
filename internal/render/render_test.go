@@ -208,7 +208,7 @@ func TestRenderOutput(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := Output(
+			got := Output([]string{
 				tt.identity,
 				tt.contextBar,
 				tt.usage5h,
@@ -217,7 +217,7 @@ func TestRenderOutput(t *testing.T) {
 				tt.usageExtra,
 				tt.statusIndicator,
 				tt.updateIndicator,
-			)
+			})
 			if got != tt.want {
 				t.Errorf("Output() =\n  %q\nwant\n  %q", got, tt.want)
 			}
@@ -456,32 +456,79 @@ func TestQuotaColor(t *testing.T) {
 	}
 }
 
-func TestIdentity(t *testing.T) {
+func TestBuild_Segments(t *testing.T) {
 	t.Parallel()
 
+	pct := 25.0
+	sep := Dim + " │ " + Reset
+	plan := Cyan + "Pro" + Reset
+	model := Cyan + "Opus" + Reset
+	cwd := Yellow + "myproject" + Reset
+	branch := Magenta + "feat/foo" + Reset
+	contextBar := Bar(25, ContextColorFunc(80))
+	base := Params{
+		LoginType:      "Pro",
+		Model:          "Opus",
+		ContextUsedPct: &pct,
+		Cwd:            "/home/user/myproject",
+		CwdMaxLen:      30,
+		Branch:         "feat/foo",
+		BranchMaxLen:   30,
+		CostUSD:        0.04,
+	}
+
 	tests := []struct {
-		name             string
-		model, loginType string
-		want             string
+		name     string
+		segments []string
+		modify   func(p *Params)
+		want     string
 	}{
 		{
-			name:      "login type and model",
-			model:     "Opus",
-			loginType: "Pro",
-			want:      Cyan + "Pro" + Reset + Dim + " │ " + Reset + Cyan + "Opus" + Reset,
+			name:     "default segments",
+			segments: nil,
+			want:     plan + sep + model + sep + contextBar,
 		},
-		{name: "model only", model: "Sonnet", loginType: "", want: Cyan + "Sonnet" + Reset},
-		{name: "both empty", model: "", loginType: "", want: ""},
-		{name: "plan only returns empty", model: "", loginType: "Pro", want: ""},
+		{
+			name:     "custom order",
+			segments: []string{SegmentContext, SegmentBranch, SegmentModel},
+			want:     contextBar + sep + branch + sep + model,
+		},
+		{
+			name:     "all identity segments",
+			segments: []string{SegmentPlan, SegmentModel, SegmentCwd, SegmentBranch, SegmentCost},
+			want:     plan + sep + model + sep + cwd + sep + branch + sep + "$0.04",
+		},
+		{
+			name:     "empty segments are skipped",
+			segments: []string{SegmentFiveHour, SegmentModel, SegmentStatus, SegmentContext},
+			want:     model + sep + contextBar,
+		},
+		{
+			name:     "plan without model",
+			segments: []string{SegmentPlan, SegmentModel, SegmentContext},
+			modify:   func(p *Params) { p.Model = "" },
+			want:     plan + sep + contextBar,
+		},
+		{
+			name:     "unknown segment is ignored",
+			segments: []string{SegmentModel, "bogus", SegmentContext},
+			want:     model + sep + contextBar,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := Identity(tt.loginType, tt.model)
-			if got != tt.want {
-				t.Errorf("Identity(%q, %q) = %q, want %q", tt.loginType, tt.model, got, tt.want)
+			p := base
+			p.Segments = tt.segments
+			if tt.modify != nil {
+				tt.modify(&p)
+			}
+			got := strings.ReplaceAll(Build(p), " ", " ")
+			want := Reset + tt.want
+			if got != want {
+				t.Errorf("Build() =\n  %q\nwant\n  %q", got, want)
 			}
 		})
 	}

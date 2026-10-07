@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/fredrikaverpil/claudeline/internal/creds"
@@ -15,6 +16,55 @@ func TestKeychainServiceNameWiring(t *testing.T) {
 	suffix := paths.ConfigDirSuffix(configDir)
 	if got := creds.KeychainServiceName(configDir); got != "Claude Code-credentials"+suffix {
 		t.Errorf("KeychainServiceName() = %q, want suffix %q", got, suffix)
+	}
+}
+
+func TestDefaultSegments(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		cfg       config
+		loginType string
+		want      []string
+	}{
+		{
+			name: "default",
+			want: []string{"plan", "model", "context", "5h", "7d", "extra", "status", "update"},
+		},
+		{
+			name: "legacy flags",
+			cfg:  config{showCwd: true, showGitBranch: true, showCost: true},
+			want: []string{
+				"plan",
+				"model",
+				"cwd",
+				"branch",
+				"context",
+				"5h",
+				"7d",
+				"cost",
+				"extra",
+				"status",
+				"update",
+			},
+		},
+		{
+			name:      "cost always shown for API users",
+			loginType: creds.ProviderAPI,
+			want:      []string{"plan", "model", "context", "5h", "7d", "cost", "extra", "status", "update"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := defaultSegments(tt.cfg, tt.loginType)
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("defaultSegments() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 

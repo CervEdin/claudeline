@@ -31,8 +31,37 @@ const (
 
 const barWidth = 5
 
+// Segment names, used to select and order statusline segments.
+const (
+	SegmentPlan     = "plan"
+	SegmentModel    = "model"
+	SegmentCwd      = "cwd"
+	SegmentBranch   = "branch"
+	SegmentContext  = "context"
+	SegmentFiveHour = "5h"
+	SegmentSevenDay = "7d"
+	SegmentCost     = "cost"
+	SegmentExtra    = "extra"
+	SegmentStatus   = "status"
+	SegmentUpdate   = "update"
+)
+
+// AllSegments lists every valid segment name.
+var AllSegments = []string{
+	SegmentPlan, SegmentModel, SegmentCwd, SegmentBranch, SegmentContext,
+	SegmentFiveHour, SegmentSevenDay, SegmentCost, SegmentExtra,
+	SegmentStatus, SegmentUpdate,
+}
+
+// DefaultSegments lists the segments rendered when Params.Segments is empty.
+var DefaultSegments = []string{
+	SegmentPlan, SegmentModel, SegmentContext, SegmentFiveHour,
+	SegmentSevenDay, SegmentExtra, SegmentStatus, SegmentUpdate,
+}
+
 // Params holds all data needed to build the statusline.
 type Params struct {
+	Segments           []string // segment names in display order; DefaultSegments when empty
 	LoginType          string
 	Model              string
 	ContextUsedPct     *float64 // nil when unavailable
@@ -48,22 +77,16 @@ type Params struct {
 	SubscriptionType string // raw subscription type for peak hours check
 	Status           *status.Response
 	Update           *update.Response
-	ShowCwd          bool
 	Cwd              string // raw working directory path
 	CwdMaxLen        int
-	ShowBranch       bool
 	Branch           string // current git branch name
 	BranchMaxLen     int
 	CacheMiss        bool
-	ShowCost         bool
 	CostUSD          float64
 }
 
 // Build assembles the complete statusline string from all collected data.
 func Build(p Params) string {
-	// Identity.
-	identity := Identity(p.LoginType, p.Model)
-
 	// Context bar.
 	contextPct := 0
 	if p.ContextUsedPct != nil {
@@ -170,26 +193,34 @@ func Build(p Params) string {
 		updateStr = UpdateIndicator(p.Update.TagName)
 	}
 
-	// Working directory and git branch.
-	sep := Dim + " │ " + Reset
-	identityFull := identity
-	if p.ShowCwd {
-		if name := cwdName(p.Cwd, p.CwdMaxLen); name != "" {
-			identityFull += sep + Yellow + name + Reset
-		}
-	}
-	if p.ShowBranch {
-		if name := compactName(p.Branch, p.BranchMaxLen); name != "" {
-			identityFull += sep + Magenta + name + Reset
-		}
-	}
-
 	var costStr string
-	if p.ShowCost && p.CostUSD > 0 {
+	if p.CostUSD > 0 {
 		costStr = Cost(p.CostUSD)
 	}
 
-	out := Output(identityFull, contextBar, usage5h, usage7d, costStr, usageExtra, statusStr, updateStr)
+	values := map[string]string{
+		SegmentPlan:     colored(Cyan, p.LoginType),
+		SegmentModel:    colored(Cyan, p.Model),
+		SegmentCwd:      colored(Yellow, cwdName(p.Cwd, p.CwdMaxLen)),
+		SegmentBranch:   colored(Magenta, compactName(p.Branch, p.BranchMaxLen)),
+		SegmentContext:  contextBar,
+		SegmentFiveHour: usage5h,
+		SegmentSevenDay: usage7d,
+		SegmentCost:     costStr,
+		SegmentExtra:    usageExtra,
+		SegmentStatus:   statusStr,
+		SegmentUpdate:   updateStr,
+	}
+	segments := p.Segments
+	if len(segments) == 0 {
+		segments = DefaultSegments
+	}
+	parts := make([]string, 0, len(segments))
+	for _, name := range segments {
+		parts = append(parts, values[name])
+	}
+
+	out := Output(parts)
 	// Leading reset clears stale ANSI state from previous renders.
 	// Non-breaking spaces prevent the terminal from collapsing whitespace.
 	return Reset + strings.ReplaceAll(out, " ", "\u00A0")
@@ -274,42 +305,23 @@ func QuotaColor(pct int) string {
 	}
 }
 
-// Identity returns the "Login Type | Model" segment.
-func Identity(loginType, model string) string {
-	switch {
-	case model != "" && loginType != "":
-		return Cyan + loginType + Reset + Dim + " │ " + Reset + Cyan + model + Reset
-	case model != "":
-		return Cyan + model + Reset
-	default:
+// colored wraps s in the given ANSI color. Returns "" when s is empty.
+func colored(color, s string) string {
+	if s == "" {
 		return ""
 	}
+	return color + s + Reset
 }
 
-// Output assembles all segments into a single-line status output.
-func Output(identity, contextBar, usage5h, usage7d, cost, usageExtra, statusIndicator, updateIndicator string) string {
-	sep := Dim + " │ " + Reset
-
-	out := identity + sep + contextBar
-	if usage5h != "" {
-		out += sep + usage5h
+// Output joins the non-empty segments into a single-line status output.
+func Output(segments []string) string {
+	nonEmpty := make([]string, 0, len(segments))
+	for _, s := range segments {
+		if s != "" {
+			nonEmpty = append(nonEmpty, s)
+		}
 	}
-	if usage7d != "" {
-		out += sep + usage7d
-	}
-	if cost != "" {
-		out += sep + cost
-	}
-	if usageExtra != "" {
-		out += sep + usageExtra
-	}
-	if statusIndicator != "" {
-		out += sep + statusIndicator
-	}
-	if updateIndicator != "" {
-		out += sep + updateIndicator
-	}
-	return out
+	return strings.Join(nonEmpty, Dim+" │ "+Reset)
 }
 
 // UpdateIndicator returns a green arrow when a newer version is available.
